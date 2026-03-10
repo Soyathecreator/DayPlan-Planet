@@ -339,7 +339,7 @@ body { overscroll-behavior-y: none; }
 /* ── SEMESTER ──────────────────────────────────── */
 .semester-bar{display:flex;align-items:center;gap:8px;padding:0 16px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 .semester-bar::-webkit-scrollbar{display:none;}
-.semester-chip{flex-shrink:0;padding:7px 14px;border-radius:50px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid var(--border);background:var(--bg2);color:var(--txt2);transition:.2s;white-space:nowrap;}
+.semester-chip{flex-shrink:0;padding:7px 14px;border-radius:50px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid var(--border);background:var(--bg2);color:var(--txt2);transition:.2s;white-space:nowrap;user-select:none;-webkit-user-select:none;}
 .semester-chip.active{background:var(--p);color:#fff;border-color:var(--p);}
 .semester-chip.add-chip{background:var(--bg3);color:var(--p);border-color:var(--p3);}
 /* ── OVERALL AVERAGE CARD ──────────────────────── */
@@ -362,6 +362,8 @@ body { overscroll-behavior-y: none; }
 .ai-chip{font-size:12px;font-weight:700;padding:5px 12px;border-radius:50px;background:var(--bg2);border:1.5px solid var(--border);color:var(--txt2);cursor:pointer;transition:.15s;}
 .ai-chip:active{background:var(--p3);border-color:var(--p);color:var(--p);}
 .mic-btn{width:46px;height:46px;border-radius:50%;background:var(--p);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+*{user-select:none;-webkit-user-select:none;}
+input,textarea{user-select:text;-webkit-user-select:text;}
 </style>
 </head>
 <body>
@@ -1008,8 +1010,11 @@ window.deleteTask = function(dateStr,ti) {
 // Build Plan Modal
 let tempTasks = [];
 window.openAddPlanModal = function() {
-  tempTasks = [];
-  showPlanModal(fmt(planningDay), null);
+  const dateStr = fmt(planningDay);
+  // Keep existing tasks so new ones are appended, not replaced
+  const existing = plans[dateStr]?.tasks;
+  tempTasks = existing ? JSON.parse(JSON.stringify(existing)) : [];
+  showPlanModal(dateStr, null);
 };
 window.openEditPlanModal = function(dateStr, ti) {
   tempTasks = JSON.parse(JSON.stringify(plans[dateStr].tasks));
@@ -1024,7 +1029,7 @@ function showPlanModal(dateStr, editIdx) {
   m.innerHTML=`
     <div class="modal">
       <div class="modal-handle"></div>
-      <h2>${editIdx!==null?'Plan bearbeiten':'Tagesplan erstellen'}</h2>
+      <h2>${editIdx!==null ? 'Plan bearbeiten' : (plans[dateStr]?.tasks?.length ? 'Aufgaben hinzufügen' : 'Tagesplan erstellen')}</h2>
       <div class="modal-tabs">
         <div class="modal-tab active" onclick="switchPlanMode('manual',this)">Manuell</div>
         <div class="modal-tab" onclick="switchPlanMode('ai',this)">🤖 KI-Modus</div>
@@ -1269,9 +1274,9 @@ window.generateAIPlan = async function() {
     setTimeout(() => {
       const tasks = parseAIFallback(prompt);
       if (tasks.length > 0) {
-        tempTasks = tasks;
+        tempTasks = [...tempTasks, ...tasks];
         renderTaskBuilder();
-        res.innerHTML = '<span style="color:var(--success);font-weight:700;">✓ Plan erstellt! Oben anpassen dann Speichern.</span>';
+        res.innerHTML = '<span style="color:var(--success);font-weight:700;">✓ ' + tasks.length + ' Aufgaben hinzugefügt! Oben anpassen dann Speichern.</span>';
         switchToManual();
       } else {
         res.innerHTML = '<span style="color:var(--warn);">Tipp: Gemini API-Key in Einstellungen für KI-Planung. Oder nutze den manuellen Modus.</span>';
@@ -1352,7 +1357,7 @@ Ausgabe: [{"title":"Einkaufen","startTime":"08:00","endTime":"08:30","done":fals
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Leere Antwort');
     // Sanitize: ensure all fields exist
-    tempTasks = parsed.map(t => ({
+    const newTasks = parsed.map(t => ({
       title: t.title || 'Aufgabe',
       startTime: t.startTime || '',
       endTime: t.endTime || '',
@@ -1364,8 +1369,9 @@ Ausgabe: [{"title":"Einkaufen","startTime":"08:00","endTime":"08:30","done":fals
         done: false
       }))
     }));
+    tempTasks = [...tempTasks, ...newTasks];
     renderTaskBuilder();
-    res.innerHTML = `<span style="color:var(--success);font-weight:700;">✓ ${tempTasks.length} Aufgaben erstellt! Prüfen & Speichern.</span>`;
+    res.innerHTML = `<span style="color:var(--success);font-weight:700;">✓ ${newTasks.length} Aufgaben hinzugefügt! Prüfen & Speichern.</span>`;
     switchToManual();
   } catch(e) {
     clearTimeout(timer);
@@ -1373,10 +1379,10 @@ Ausgabe: [{"title":"Einkaufen","startTime":"08:00","endTime":"08:30","done":fals
     // Fallback to text parser
     const tasks = parseAIFallback(prompt);
     if (tasks.length > 0) {
-      tempTasks = tasks;
+      tempTasks = [...tempTasks, ...tasks];
       renderTaskBuilder();
       const isAbort = e.name === 'AbortError';
-      res.innerHTML = `<span style="color:var(--warn);font-weight:700;">${isAbort ? '⏱ KI-Timeout' : '⚠ KI-Fehler'} – Plan aus Text erstellt.</span>`;
+      res.innerHTML = `<span style="color:var(--warn);font-weight:700;">${isAbort ? '⏱ KI-Timeout' : '⚠ KI-Fehler'} – ${tasks.length} Aufgaben aus Text erstellt.</span>`;
       switchToManual();
     } else {
       res.innerHTML = `<span style="color:var(--danger);">Fehler: ${e.message || 'Unbekannt'}. Bitte manuellen Modus nutzen.</span>`;
