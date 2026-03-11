@@ -791,7 +791,7 @@ window.openTosModal = function() {
   const existing = document.getElementById('tos-modal');
   if (existing) existing.remove();
   const m = document.createElement('div');
-  m.className = 'modal-backdrop'; m.id = 'tos-modal';
+  m.className = 'modal-backdrop'; m.id = 'tos-modal'; m.style.zIndex = '2000';
   m.innerHTML = `
     <div class="modal" style="max-height:85dvh;overflow-y:auto;">
       <div class="modal-handle"></div>
@@ -2589,6 +2589,12 @@ function attachSwipeToClose(sheet, onClose) {
     sheet.classList.remove('sliding');
     if (curY > 80) {
       sheet.style.transform = 'translateY(100%)';
+      // Backdrop gleichzeitig ausblenden
+      const backdrop = sheet.closest('.modal-backdrop');
+      if (backdrop) {
+        backdrop.style.transition = 'opacity 0.28s';
+        backdrop.style.opacity = '0';
+      }
       setTimeout(onClose, 280);
     } else {
       sheet.style.transform = '';
