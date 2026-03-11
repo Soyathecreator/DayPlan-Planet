@@ -397,7 +397,7 @@ input,textarea{user-select:text;-webkit-user-select:text;}
       <div style="display:flex;align-items:flex-start;gap:10px;margin:10px 0 4px;">
         <input type="checkbox" id="reg-tos" style="margin-top:3px;accent-color:var(--p);width:18px;height:18px;flex-shrink:0;cursor:pointer;">
         <label for="reg-tos" style="font-size:13px;color:var(--txt2);line-height:1.5;cursor:pointer;">
-          Ich akzeptiere die <span onclick="openTosModal()" style="color:var(--p);font-weight:700;text-decoration:underline;cursor:pointer;">Nutzungsbedingungen</span>
+          Ich akzeptiere die <span onclick="event.preventDefault();event.stopPropagation();openTosModal();" style="color:var(--p);font-weight:700;text-decoration:underline;cursor:pointer;">Nutzungsbedingungen</span>
         </label>
       </div>
       <div class="auth-err" id="reg-err"></div>
@@ -698,6 +698,7 @@ async function loadSettingsFromFirestore() {
       if (s.dark !== undefined) { isDark = s.dark; localStorage.setItem('pp_dark', isDark?'1':'0'); }
       if (s.color) { colorTheme = s.color; localStorage.setItem('pp_color', colorTheme); }
       if (s.geminiKey) { localStorage.setItem('pp_gemini_key', s.geminiKey); }
+      if (s.devMode !== undefined) { isDevMode = s.devMode; }
       applyTheme();
     }
   } catch(e) { console.warn('Settings load error:', e); }
@@ -709,7 +710,8 @@ async function saveSettingsToFirestore() {
       settings: {
         dark: isDark,
         color: colorTheme,
-        geminiKey: localStorage.getItem('pp_gemini_key') || ''
+        geminiKey: localStorage.getItem('pp_gemini_key') || '',
+        devMode: isDevMode
       }
     });
   } catch(e) { console.warn('Settings save error:', e); }
@@ -2303,8 +2305,8 @@ window.deleteTest = function(subjId,testId) {
 
 window.toggleDevMode = async function() {
   if(isDevMode) {
-    // Dev-Modus deaktivieren
     isDevMode = false;
+    saveSettingsToFirestore();
     renderSettings();
     showToast('Dev-Modus deaktiviert');
     return;
@@ -2345,6 +2347,7 @@ window.confirmDevKey = async function() {
     if(input !== storedKey) { errEl.textContent = 'Falscher Dev-Key. Bitte prüfe Firebase.'; return; }
     isDevMode = true;
     document.getElementById('devkey-modal').remove();
+    await saveSettingsToFirestore();
     renderSettings();
     showToast('✅ Dev-Modus aktiviert');
   } catch(e) {
