@@ -394,6 +394,12 @@ input,textarea{user-select:text;-webkit-user-select:text;}
       <input class="auth-inp" type="text" id="reg-name" placeholder="Dein Name">
       <input class="auth-inp" type="email" id="reg-email" placeholder="E-Mail">
       <input class="auth-inp" type="password" id="reg-pw" placeholder="Passwort (min. 6 Zeichen)">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin:10px 0 4px;">
+        <input type="checkbox" id="reg-tos" style="margin-top:3px;accent-color:var(--p);width:18px;height:18px;flex-shrink:0;cursor:pointer;">
+        <label for="reg-tos" style="font-size:13px;color:var(--txt2);line-height:1.5;cursor:pointer;">
+          Ich akzeptiere die <span onclick="openTosModal()" style="color:var(--p);font-weight:700;text-decoration:underline;cursor:pointer;">Nutzungsbedingungen</span>
+        </label>
+      </div>
       <div class="auth-err" id="reg-err"></div>
       <button class="btn-primary" onclick="doRegister()">Konto erstellen</button>
     </div>
@@ -740,13 +746,62 @@ window.doRegister = async function() {
   const name=document.getElementById('reg-name').value.trim();
   const email=document.getElementById('reg-email').value;
   const pw=document.getElementById('reg-pw').value;
+  const tos=document.getElementById('reg-tos').checked;
   document.getElementById('reg-err').textContent='';
   if (!name) { document.getElementById('reg-err').textContent='Bitte Namen eingeben.'; return; }
+  if (!tos) { document.getElementById('reg-err').textContent='Bitte akzeptiere die Nutzungsbedingungen.'; return; }
   try {
     const cred = await createUserWithEmailAndPassword(auth,email,pw);
     await updateProfile(cred.user,{displayName:name});
-    await setDoc(doc(db,'users',cred.user.uid),{name,email,createdAt:new Date().toISOString()});
+    const tosAccepted = { accepted: true, acceptedAt: new Date().toISOString(), ip: 'client' };
+    await setDoc(doc(db,'users',cred.user.uid),{
+      name, email,
+      createdAt: new Date().toISOString(),
+      tosAccepted
+    });
+    // Separates TOS-Log fuer rechtlichen Nachweis
+    await setDoc(doc(db,'tos_log',cred.user.uid), {
+      uid: cred.user.uid,
+      name, email,
+      acceptedAt: new Date().toISOString(),
+      tosVersion: '1.0',
+      userAgent: navigator.userAgent
+    });
   } catch(e){ document.getElementById('reg-err').textContent=authErrMsg(e.code); }
+};
+
+window.openTosModal = function() {
+  const existing = document.getElementById('tos-modal');
+  if (existing) existing.remove();
+  const m = document.createElement('div');
+  m.className = 'modal-backdrop'; m.id = 'tos-modal';
+  m.innerHTML = `
+    <div class="modal" style="max-height:85dvh;overflow-y:auto;">
+      <div class="modal-handle"></div>
+      <h2>📄 Nutzungsbedingungen</h2>
+      <div style="font-size:13px;color:var(--txt2);line-height:1.7;">
+        <p style="font-size:11px;color:var(--txt3);margin-bottom:16px;">Stand: ${new Date().toLocaleDateString('de-CH')} · Version 1.0</p>
+
+        <div style="font-weight:800;color:var(--txt);margin-bottom:6px;">1. Urheberrecht & geistiges Eigentum</div>
+        <p style="margin-bottom:14px;">Sämtliche Inhalte dieser App – einschliesslich Quellcode, Benutzeroberfläche, Logos, Design und die App selbst – sind ausschliessliches Eigentum von <strong>Michael Rohner (Soyathecreator)</strong> und durch das Urheberrecht geschützt. Das Kopieren, Reproduzieren, Verbreiten oder Verwenden jeglicher Inhalte, die aus dieser App stammen oder ihr ähneln, ist ohne ausdrückliche schriftliche Genehmigung des Rechteinhabers strengstens untersagt.</p>
+
+        <div style="font-weight:800;color:var(--txt);margin-bottom:6px;">2. Betrieb & Verfügbarkeit</div>
+        <p style="margin-bottom:14px;">Michael Rohner behält sich das Recht vor, Benutzerkonten, gespeicherte Daten sowie die App selbst jederzeit und ohne Angabe von Gründen zu löschen, zu sperren oder vom Netz zu nehmen. Ein Anspruch auf dauerhaften Betrieb oder Datensicherung besteht nicht.</p>
+
+        <div style="font-weight:800;color:var(--txt);margin-bottom:6px;">3. Haftungsausschluss</div>
+        <p style="margin-bottom:14px;">Die Nutzung dieser App erfolgt auf eigene Gefahr. Michael Rohner übernimmt keinerlei Haftung für Schäden, die durch die Nutzung der App entstehen – insbesondere nicht für Datenverlust, Fehlfunktionen oder sonstige Beeinträchtigungen. Der Betreiber haftet nicht für mittelbare oder unmittelbare Schäden jeglicher Art.</p>
+
+        <div style="font-weight:800;color:var(--txt);margin-bottom:6px;">4. Zustimmung</div>
+        <p style="margin-bottom:14px;">Mit der Erstellung eines Kontos bestätigst du, diese Nutzungsbedingungen gelesen und akzeptiert zu haben. Datum, Uhrzeit und Geräteinformationen der Zustimmung werden zum Zweck des Rechtsnachweises gespeichert.</p>
+
+        <p style="font-size:11px;color:var(--txt3);">Bei Fragen: Soyathecreator / Michael Rohner</p>
+      </div>
+      <button class="btn-primary" onclick="document.getElementById('tos-modal').remove();document.getElementById('reg-tos').checked=true;" style="margin-top:8px;">
+        Verstanden & Akzeptieren
+      </button>
+    </div>`;
+  document.getElementById('modals').appendChild(m);
+  m.addEventListener('click', e => { if(e.target===m) m.remove(); });
 };
 window.doLogout = async function() {
   await signOut(auth);
@@ -2417,15 +2472,15 @@ function attachSwipeToClose(sheet, onClose) {
   if (!sheet) return;
   let startY = 0, curY = 0, dragging = false, lockedAxis = null;
 
-  function getTopHalf() {
+  // Swipe-Zone: handle-div + ~80px darunter (handle + titel bereich)
+  function inSwipeZone(clientY) {
     const r = sheet.getBoundingClientRect();
-    return r.top + r.height * 0.5;
+    return clientY < r.top + 88;
   }
 
   function onStart(e) {
     const t = e.touches ? e.touches[0] : e;
-    // Allow swipe from entire upper half of sheet
-    if (t.clientY > getTopHalf()) return;
+    if (!inSwipeZone(t.clientY)) return;
     startY = t.clientY; curY = 0; dragging = true; lockedAxis = null;
     sheet.classList.add('sliding');
   }
@@ -2436,14 +2491,14 @@ function attachSwipeToClose(sheet, onClose) {
     const dx = Math.abs(t.clientX - startY);
 
     if (!lockedAxis) {
-      if (Math.abs(dy) > 6) lockedAxis = 'y';
-      else if (dx > 6) { lockedAxis = 'x'; dragging = false; return; }
+      if (Math.abs(dy) > 5) lockedAxis = 'y';
+      else if (dx > 5) { lockedAxis = 'x'; dragging = false; return; }
       else return;
     }
 
     curY = dy < 0 ? 0 : dy;
     sheet.style.transform = 'translateY(' + curY + 'px)';
-    if (curY > 0) e.preventDefault();
+    e.preventDefault();
   }
   function onEnd() {
     if (!dragging) return;
@@ -2457,7 +2512,6 @@ function attachSwipeToClose(sheet, onClose) {
     }
   }
 
-  // Attach touchstart to whole sheet (checks position internally)
   sheet.addEventListener('touchstart', onStart, { passive: true });
   sheet.addEventListener('touchmove', onMove, { passive: false });
   sheet.addEventListener('touchend', onEnd);
