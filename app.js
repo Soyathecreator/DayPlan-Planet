@@ -44,7 +44,7 @@ function initLogos() {
   // Loading screen: DLogo_A
   document.getElementById('logo-loading').src = 'data:image/png;base64,' + LOGO_A;
   // Auth screen: original Logo (unverändert)
-  document.getElementById('logo-auth').src = 'data:image/png;base64,' + LOGO_AUTH;
+  document.getElementById('logo-auth').src = 'data:image/jpeg;base64,' + LOGO_AUTH;
   // Home tab: hell=DLogo_A, dunkel=DLogo_B
   updateHomeLogo();
 }
