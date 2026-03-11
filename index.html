@@ -326,7 +326,7 @@ input[type='time'].inp{cursor:pointer;-webkit-appearance:none;appearance:none;}
 }
 
 /* ── SWIPEABLE MODAL ───────────────────────────── */
-.modal { touch-action:pan-x; }
+.modal { touch-action:pan-y; }
 .modal-backdrop { overscroll-behavior:contain; }
 
 /* ── TIME INPUT icon color ─────────────────────── */
@@ -861,7 +861,7 @@ window.switchTab = function(tab) {
   const pill = document.querySelector('.nav-home-pill');
   if(pill) pill.style.opacity = tab==='home' ? '1' : '0.65';
   if(tab==='home') renderHome();
-  if(tab==='plan') { planningDay = new Date(); renderPlan(); }
+  if(tab==='plan') { if(!window._keepPlanDay) planningDay = new Date(); window._keepPlanDay = false; renderPlan(); }
   if(tab==='cal') renderCal();
   if(tab==='learn') renderLearn();
   if(tab==='settings') renderSettings();
@@ -1646,6 +1646,7 @@ window.calMonthNav = function(dir) {
 };
 window.calDayClick = function(ds) {
   planningDay=parseDate(ds);
+  window._keepPlanDay = true;
   switchTab('plan');
 };
 function renderEventsList() {
@@ -2416,11 +2417,15 @@ function attachSwipeToClose(sheet, onClose) {
   if (!sheet) return;
   let startY = 0, curY = 0, dragging = false, lockedAxis = null;
 
-  // Only attach swipe on the handle area (top 40px of sheet)
-  const handle = sheet.querySelector('.modal-handle') || sheet;
+  function getTopHalf() {
+    const r = sheet.getBoundingClientRect();
+    return r.top + r.height * 0.5;
+  }
 
   function onStart(e) {
     const t = e.touches ? e.touches[0] : e;
+    // Allow swipe from entire upper half of sheet
+    if (t.clientY > getTopHalf()) return;
     startY = t.clientY; curY = 0; dragging = true; lockedAxis = null;
     sheet.classList.add('sliding');
   }
@@ -2428,9 +2433,8 @@ function attachSwipeToClose(sheet, onClose) {
     if (!dragging) return;
     const t = e.touches ? e.touches[0] : e;
     const dy = t.clientY - startY;
-    const dx = Math.abs(t.clientX - (e.touches ? e.touches[0].clientX : t.clientX));
+    const dx = Math.abs(t.clientX - startY);
 
-    // Lock axis on first significant movement
     if (!lockedAxis) {
       if (Math.abs(dy) > 6) lockedAxis = 'y';
       else if (dx > 6) { lockedAxis = 'x'; dragging = false; return; }
@@ -2439,16 +2443,13 @@ function attachSwipeToClose(sheet, onClose) {
 
     curY = dy < 0 ? 0 : dy;
     sheet.style.transform = 'translateY(' + curY + 'px)';
-    // Only prevent default when dragging the sheet down (not scrolling content)
-    if (curY > 0) {
-      e.preventDefault();
-    }
+    if (curY > 0) e.preventDefault();
   }
   function onEnd() {
     if (!dragging) return;
     dragging = false; lockedAxis = null;
     sheet.classList.remove('sliding');
-    if (curY > 100) {
+    if (curY > 80) {
       sheet.style.transform = 'translateY(100%)';
       setTimeout(onClose, 280);
     } else {
@@ -2456,8 +2457,8 @@ function attachSwipeToClose(sheet, onClose) {
     }
   }
 
-  // Attach to handle only so scroll inside modal works freely
-  handle.addEventListener('touchstart', onStart, { passive: true });
+  // Attach touchstart to whole sheet (checks position internally)
+  sheet.addEventListener('touchstart', onStart, { passive: true });
   sheet.addEventListener('touchmove', onMove, { passive: false });
   sheet.addEventListener('touchend', onEnd);
 }
