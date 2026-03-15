@@ -169,7 +169,12 @@ input[type='time'].inp{cursor:pointer;-webkit-appearance:none;appearance:none;}
 
 /* MODAL */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
-.modal{background:var(--bg2);border-radius:28px 28px 0 0;width:100%;max-width:480px;padding:24px;max-height:90dvh;overflow-y:auto;}
+.modal{background:var(--bg2);border-radius:28px 28px 0 0;width:100%;max-width:480px;max-height:90dvh;overflow:hidden;display:flex;flex-direction:column;}
+.modal > *:not(.modal-top):not(.modal-body):not(.modal-footer):first-child ~ * { }
+.modal:not(:has(.modal-body)) { padding:24px; overflow-y:auto; display:block; }
+.modal-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 24px 8px;overscroll-behavior:contain;}
+.modal-footer{padding:12px 24px 24px;background:var(--bg2);flex-shrink:0;}
+.modal-top{padding:24px 24px 0;flex-shrink:0;}
 .modal-handle{width:40px;height:4px;background:var(--border);border-radius:50px;margin:0 auto 20px;}
 .modal h2{font-size:20px;font-weight:900;margin-bottom:20px;color:var(--txt);}
 .modal-tabs{display:flex;gap:8px;margin-bottom:20px;}
@@ -1227,44 +1232,50 @@ function showPlanModal(dateStr, editIdx) {
   m.id='plan-modal';
   m.innerHTML=`
     <div class="modal">
-      <div class="modal-handle"></div>
-      <h2>${editIdx!==null ? 'Plan bearbeiten' : (plans[dateStr]?.tasks?.length ? 'Aufgaben hinzufügen' : 'Tagesplan erstellen')}</h2>
-      <div class="modal-tabs">
-        <div class="modal-tab active" onclick="switchPlanMode('manual',this)">Manuell</div>
-        <div class="modal-tab" onclick="switchPlanMode('ai',this)">🤖 KI-Modus</div>
-      </div>
-      <div id="plan-manual">
-        <div id="task-builder-list"></div>
-        <button class="btn-secondary" style="width:100%;margin-bottom:12px;" onclick="addTaskToBuilder()">+ Aufgabe hinzufügen</button>
-      </div>
-      <div id="plan-ai" class="hidden">
-        <div class="ai-area">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <span style="font-size:15px;font-weight:900;color:var(--p);">🤖 KI-Tagesplan</span>
-            <span id="ai-key-badge" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:50px;background:var(--p3);color:var(--p);">Gemini aktiv</span>
-          </div>
-          <div style="font-size:12px;color:var(--txt3);margin-bottom:10px;">Schreibe oder sprich deinen Tag – die KI strukturiert ihn automatisch.</div>
-          <div class="ai-chips" id="ai-chips">
-            <div class="ai-chip" onclick="setPromptExample(0)">📚 Lernplan</div>
-            <div class="ai-chip" onclick="setPromptExample(1)">🏃 Sport & Alltag</div>
-            <div class="ai-chip" onclick="setPromptExample(2)">💼 Arbeitstag</div>
-          </div>
-          <div class="ai-input-row">
-            <textarea class="ai-textarea" id="ai-prompt" rows="4" placeholder="z.B.: Mathe lernen von 8-9 Uhr, danach Deutsch Aufsatz schreiben (Gliederung 20 Min., schreiben 40 Min.), Mittag um 12, Sport um 17 Uhr 45 Min."></textarea>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:10px;">
-            <button class="mic-btn" id="mic-btn" onclick="toggleMic()" title="Spracheingabe">
-              <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-            </button>
-            <button class="btn-primary" style="flex:1;" onclick="generateAIPlan()">✨ Plan erstellen</button>
-          </div>
-          <div id="mic-status" class="hidden" style="margin-top:8px;font-size:12px;color:var(--danger);font-weight:700;text-align:center;">🎙 Aufnahme läuft… Mikrofon nochmal tippen zum Beenden</div>
-          <div id="ai-result" class="hidden" style="margin-top:10px;"></div>
+      <div class="modal-top">
+        <div class="modal-handle"></div>
+        <h2 style="margin-bottom:12px;">${editIdx!==null ? 'Plan bearbeiten' : (plans[dateStr]?.tasks?.length ? 'Aufgaben hinzufügen' : 'Tagesplan erstellen')}</h2>
+        <div class="modal-tabs">
+          <div class="modal-tab active" onclick="switchPlanMode('manual',this)">Manuell</div>
+          <div class="modal-tab" onclick="switchPlanMode('ai',this)">🤖 KI-Modus</div>
         </div>
       </div>
-      <div style="display:flex;gap:10px;margin-top:16px;">
-        <button class="btn-secondary" style="flex:1;" onclick="closePlanModal()">Abbrechen</button>
-        <button class="btn-primary" style="flex:1;" onclick="savePlan('${dateStr}')">Speichern</button>
+      <div class="modal-body">
+        <div id="plan-manual">
+          <div id="task-builder-list"></div>
+          <button class="btn-secondary" style="width:100%;margin-bottom:12px;" onclick="addTaskToBuilder()">+ Aufgabe hinzufügen</button>
+        </div>
+        <div id="plan-ai" class="hidden">
+          <div class="ai-area">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span style="font-size:15px;font-weight:900;color:var(--p);">🤖 KI-Tagesplan</span>
+              <span id="ai-key-badge" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:50px;background:var(--p3);color:var(--p);">Gemini aktiv</span>
+            </div>
+            <div style="font-size:12px;color:var(--txt3);margin-bottom:10px;">Schreibe oder sprich deinen Tag – die KI strukturiert ihn automatisch.</div>
+            <div class="ai-chips" id="ai-chips">
+              <div class="ai-chip" onclick="setPromptExample(0)">📚 Lernplan</div>
+              <div class="ai-chip" onclick="setPromptExample(1)">🏃 Sport & Alltag</div>
+              <div class="ai-chip" onclick="setPromptExample(2)">💼 Arbeitstag</div>
+            </div>
+            <div class="ai-input-row">
+              <textarea class="ai-textarea" id="ai-prompt" rows="4" placeholder="z.B.: Mathe lernen von 8-9 Uhr, danach Deutsch Aufsatz schreiben (Gliederung 20 Min., schreiben 40 Min.), Mittag um 12, Sport um 17 Uhr 45 Min."></textarea>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="mic-btn" id="mic-btn" onclick="toggleMic()" title="Spracheingabe">
+                <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
+              <button class="btn-primary" style="flex:1;" onclick="generateAIPlan()">✨ Plan erstellen</button>
+            </div>
+            <div id="mic-status" class="hidden" style="margin-top:8px;font-size:12px;color:var(--danger);font-weight:700;text-align:center;">🎙 Aufnahme läuft… Mikrofon nochmal tippen zum Beenden</div>
+            <div id="ai-result" class="hidden" style="margin-top:10px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div style="display:flex;gap:10px;">
+          <button class="btn-secondary" style="flex:1;" onclick="closePlanModal()">Abbrechen</button>
+          <button class="btn-primary" style="flex:1;" onclick="savePlan('${dateStr}')">Speichern</button>
+        </div>
       </div>
     </div>
   `;
